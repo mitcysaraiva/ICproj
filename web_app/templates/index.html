@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Upload</title>
+    <script>
+        function encodeImageFileAsURL(element) {
+            var file = element.files[0];
+            var reader = new FileReader();
+            reader.onloadend = function() {
+                var img = document.getElementById('uploaded_image');
+                img.src = reader.result;
+                img.style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+
+        async function uploadImage() {
+            const imageData = document.getElementById('uploaded_image').src;
+            if (!imageData) {
+                alert('Please select an image first.');
+                return;
+            }
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ image: imageData })
+            });
+
+            const result = await response.json();
+            document.getElementById('result').innerText = JSON.stringify(result, null, 2);
+        }
+    </script>
+</head>
+<body>
+    <h1>Upload Bacteria Image</h1>
+    <input type="file" onchange="encodeImageFileAsURL(this)" accept="image/*">
+    <br><br>
+    <img id="uploaded_image" src="#" alt="Uploaded Image" style="max-width: 400px; max-height: 400px; display: none;">
+    <br><br>
+    <button onclick="uploadImage()">Upload Image</button>
+    <pre id="result"></pre>
+</body>
+</html>
