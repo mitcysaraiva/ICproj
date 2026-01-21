@@ -132,3 +132,7 @@ dmypy.json
 
 **/Data/**/*
 **/*.h5
+
+# Dataset downloads / generated images (keep out of git)
+data/
+**/data/**/*
