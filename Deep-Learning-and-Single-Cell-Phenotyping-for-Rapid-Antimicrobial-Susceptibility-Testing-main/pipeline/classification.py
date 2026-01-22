@@ -549,6 +549,12 @@ def train(mode=None, X_train=None, y_train=None, size_target=None, pad_cells=Fal
     augment = kwargs.get('augment', True)
     return_best = kwargs.get('return_best', False)
     return_best_monitor = kwargs.get('return_best_monitor', 'val_accuracy')
+    X_val = kwargs.get('X_val', None)
+    y_val = kwargs.get('y_val', None)
+    X_test = kwargs.get('X_test', None)
+    y_test = kwargs.get('y_test', None)
+    eval_test_each_epoch = kwargs.get('eval_test_each_epoch', False)
+    test_eval_batch_size = kwargs.get('test_eval_batch_size', None)
 
     #Create model instance
     model = define_model(
@@ -579,36 +585,63 @@ def train(mode=None, X_train=None, y_train=None, size_target=None, pad_cells=Fal
         X_train = [pad_to_size(img,size_target) for img in X_train]
 
     X_train = skimage.img_as_ubyte(np.asarray(X_train))
-    y_train = to_categorical(y_train)
+    y_train = to_categorical(np.asarray(y_train, dtype='int32'), num_classes=class_count)
+
+    if (X_val is None) != (y_val is None):
+        raise ValueError('X_val and y_val must be provided together (or not at all).')
+    if (X_test is None) != (y_test is None):
+        raise ValueError('X_test and y_test must be provided together (or not at all).')
+
+    if X_val is not None:
+        if resize_cells:
+            X_val = [resize(img, size_target) for img in X_val]
+            X_val = [skimage.img_as_uint(img) for img in X_val]
+        elif pad_cells:
+            X_val = [pad_to_size(img,size_target) for img in X_val]
+
+        X_val = skimage.img_as_ubyte(np.asarray(X_val))
+        y_val = to_categorical(np.asarray(y_val, dtype='int32'), num_classes=class_count)
+
+    if X_test is not None:
+        if resize_cells:
+            X_test = [resize(img, size_target) for img in X_test]
+            X_test = [skimage.img_as_uint(img) for img in X_test]
+        elif pad_cells:
+            X_test = [pad_to_size(img, size_target) for img in X_test]
+
+        X_test = skimage.img_as_ubyte(np.asarray(X_test))
+        y_test = to_categorical(np.asarray(y_test, dtype='int32'), num_classes=class_count)
 
     if verbose:
         inspect_model_data(X_train, y_train, n)
 
-
     # Generator class. Compute pre-processing statistics. Can also specify on the fly augmentation.
+    if X_val is None:
+        # Split apart validation from the training pool
+        count_total = len(X_train) #Total number of training+validation examples
+        val_count = int((count_total * validation_split)) #Number of validation examples
 
-    #Split apart validation
-    count_total = len(X_train) #Total number of training+validation examples
-    val_count = int((count_total * validation_split)) #Number of validation examples
-    train_count = count_total - val_count #Number of actual training examples
+        # Select indices to include in validation
+        if val_seed is None:
+            val_idx = np.random.choice(np.arange(count_total), size=val_count, replace=False)
+        else:
+            rng = np.random.RandomState(val_seed)
+            val_idx = rng.choice(np.arange(count_total), size=val_count, replace=False)
+        train_idx = np.setdiff1d(np.arange(count_total), val_idx, assume_unique=False)
 
+        val_X= X_train[val_idx,:,:,:]
+        train_X = X_train[train_idx,:,:,:]
 
-    #Select indicies to include in validation
-    if val_seed is None:
-        val_idx = np.random.choice(np.arange(count_total), size=val_count, replace=False)
+        val_y = y_train[val_idx,:]
+        train_y = y_train[train_idx,:]
+
+        assert len(val_X) + len(train_X) == count_total
+        assert len(val_y) + len(train_y) == count_total
     else:
-        rng = np.random.RandomState(val_seed)
-        val_idx = rng.choice(np.arange(count_total), size=val_count, replace=False)
-    train_idx = np.setdiff1d(np.arange(count_total), val_idx, assume_unique=False)
-
-    val_X= X_train[val_idx,:,:,:]
-    train_X = X_train[train_idx,:,:,:]
-
-    val_y = y_train[val_idx,:]
-    train_y = y_train[train_idx,:]
-
-    assert len(val_X) + len(train_X) == count_total
-    assert len(val_y) + len(train_y) == count_total
+        train_X = X_train
+        train_y = y_train
+        val_X = X_val
+        val_y = y_val
 
 
     def _wrap_preprocess(preprocess_fn):
@@ -632,9 +665,13 @@ def train(mode=None, X_train=None, y_train=None, size_target=None, pad_cells=Fal
         histeq_aug = iaa.Sequential([iaa.AllChannelsHistogramEqualization()])
         train_X = histeq_aug(images=train_X)
         val_X = histeq_aug(images=val_X)
+        if X_test is not None:
+            X_test = histeq_aug(images=X_test)
 
     if preprocess_fn is not None:
         val_X = preprocess_fn(val_X)
+        if X_test is not None:
+            X_test = preprocess_fn(X_test)
 
     #Define augmentation
 
@@ -693,6 +730,45 @@ def train(mode=None, X_train=None, y_train=None, size_target=None, pad_cells=Fal
                                         verbose=0, save_weights_only=False, save_best_only=True, monitor='val_loss',
                                         mode='min'),
     ]
+
+    if eval_test_each_epoch and X_test is not None:
+        class _HoldoutTestCallback(keras.callbacks.Callback):
+            def __init__(self, X, y, batch_size):
+                super().__init__()
+                self.X = X
+                self.y = y
+                self.batch_size = batch_size
+
+            def on_epoch_end(self, epoch, logs=None):
+                logs = logs or {}
+                try:
+                    metrics = self.model.evaluate(self.X, self.y, verbose=0, batch_size=self.batch_size, return_dict=True)
+                    loss = float(metrics.get('loss'))
+                    acc = metrics.get('accuracy', metrics.get('acc', None))
+                    acc = None if acc is None else float(acc)
+                except TypeError:
+                    metrics = self.model.evaluate(self.X, self.y, verbose=0, batch_size=self.batch_size)
+                    if isinstance(metrics, (list, tuple)):
+                        loss = float(metrics[0])
+                        acc = None if len(metrics) < 2 else float(metrics[1])
+                    else:
+                        loss = float(metrics)
+                        acc = None
+
+                logs['test_loss'] = loss
+                if acc is not None:
+                    logs['test_accuracy'] = acc
+                    print(f'Hold-out test @ epoch {epoch + 1}: loss={loss:.4f}, acc={acc:.4f}')
+                else:
+                    print(f'Hold-out test @ epoch {epoch + 1}: loss={loss:.4f}')
+
+        callbacks.append(
+            _HoldoutTestCallback(
+                X_test,
+                y_test,
+                batch_size=(test_eval_batch_size if test_eval_batch_size is not None else batch_size),
+            )
+        )
 
     if use_lr_scheduler:
         callbacks.append(keras.callbacks.LearningRateScheduler(scheduler, verbose=0))
@@ -1127,8 +1203,6 @@ def get_masked_mean(img):
     mean = np.asarray(np.mean(local_img_masked,axis=(0,1)))
 
     return mean
-
-
 
 
 
