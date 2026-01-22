@@ -744,7 +744,11 @@ def train(mode=None, X_train=None, y_train=None, size_target=None, pad_cells=Fal
                 try:
                     metrics = self.model.evaluate(self.X, self.y, verbose=0, batch_size=self.batch_size, return_dict=True)
                     loss = float(metrics.get('loss'))
-                    acc = metrics.get('accuracy', metrics.get('acc', None))
+                    acc = None
+                    for k in ('accuracy', 'acc', 'categorical_accuracy', 'sparse_categorical_accuracy'):
+                        if k in metrics:
+                            acc = metrics.get(k)
+                            break
                     acc = None if acc is None else float(acc)
                 except TypeError:
                     metrics = self.model.evaluate(self.X, self.y, verbose=0, batch_size=self.batch_size)
@@ -758,9 +762,9 @@ def train(mode=None, X_train=None, y_train=None, size_target=None, pad_cells=Fal
                 logs['test_loss'] = loss
                 if acc is not None:
                     logs['test_accuracy'] = acc
-                    print(f'Hold-out test @ epoch {epoch + 1}: loss={loss:.4f}, acc={acc:.4f}')
+                    print(f'Hold-out test @ epoch {epoch + 1}: loss={loss:.4f}, acc={acc:.4f}', flush=True)
                 else:
-                    print(f'Hold-out test @ epoch {epoch + 1}: loss={loss:.4f}')
+                    print(f'Hold-out test @ epoch {epoch + 1}: loss={loss:.4f}', flush=True)
 
         callbacks.append(
             _HoldoutTestCallback(
@@ -1203,7 +1207,4 @@ def get_masked_mean(img):
     mean = np.asarray(np.mean(local_img_masked,axis=(0,1)))
 
     return mean
-
-
-
 
