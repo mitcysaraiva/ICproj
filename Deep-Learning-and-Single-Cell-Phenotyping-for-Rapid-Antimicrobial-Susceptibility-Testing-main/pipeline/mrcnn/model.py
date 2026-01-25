@@ -2094,26 +2094,20 @@ class MaskRCNN():
         return checkpoint
 
     def load_weights(self, filepath, by_name=False, exclude=None):
-        """Modified version of the corresponding Keras function with
-        the addition of multi-GPU support and the ability to exclude
-        some layers from loading.
-        exclude: list of layer names to exclude
-        """
         if exclude:
             by_name = True
 
         # In multi-GPU training, we wrap the model. Load weights into the inner
         # model because it owns the weights.
-        keras_model = self.keras_model.inner_model if hasattr(self.keras_model, "inner_model") else self.keras_model
+        keras_model = self.keras_model.inner_model if hasattr(self.keras_model, 'inner_model') else self.keras_model
 
-        # When `exclude` is used, shapes often mismatch (e.g., different class
-        # count). Use `skip_mismatch=True` when supported.
+        # When exclude is used, shapes often mismatch (e.g., different class
+        # count). Use skip_mismatch=True when supported.
         try:
             keras_model.load_weights(filepath, by_name=by_name, skip_mismatch=bool(exclude))
         except TypeError:
             keras_model.load_weights(filepath, by_name=by_name)
 
-        # Update the log directory
         self.set_log_dir(filepath)
 
     def get_imagenet_weights(self):

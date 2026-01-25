@@ -1,0 +1,26 @@
+conditions:
+  - "WT+ETOH"
+  - "CIP+ETOH"
+
+patient_split: false
+
+test_size: 0.10
+val_size: 0.20
+
+# Number of cropped cells per class (per split) to keep.
+# Use a smaller value if you hit RAM limits; set to null for all cells.
+n_per_class: 2000
+
+# Global random seed for data splits, cropping, Optuna, and training.
+seed: 42
+
+output_dir: "./models/classification"
+
+batch_size: 4
+epochs: 100
+optimizer: "NAdam"
+
+optuna:
+  enabled: true
+  n_trials: 25
+  epochs_tune: 40
