@@ -10,6 +10,50 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from PIL import Image
+import warnings
+
+# ------------------------------------------------------------------
+# Torchvision compatibility helpers
+# ------------------------------------------------------------------
+_PIL_TRANSPOSE = getattr(Image, "Transpose", Image)
+
+try:
+    RandomHorizontalFlip = transforms.RandomHorizontalFlip
+except AttributeError:
+    warnings.warn(
+        "torchvision.transforms.RandomHorizontalFlip not found; using a fallback implementation.",
+        RuntimeWarning,
+    )
+
+    class RandomHorizontalFlip:
+        def __init__(self, p: float = 0.5):
+            self.p = p
+
+        def __call__(self, img):
+            if random.random() >= self.p:
+                return img
+            if isinstance(img, torch.Tensor):
+                return torch.flip(img, dims=[-1])
+            return img.transpose(_PIL_TRANSPOSE.FLIP_LEFT_RIGHT)
+
+try:
+    RandomVerticalFlip = transforms.RandomVerticalFlip
+except AttributeError:
+    warnings.warn(
+        "torchvision.transforms.RandomVerticalFlip not found; using a fallback implementation.",
+        RuntimeWarning,
+    )
+
+    class RandomVerticalFlip:
+        def __init__(self, p: float = 0.5):
+            self.p = p
+
+        def __call__(self, img):
+            if random.random() >= self.p:
+                return img
+            if isinstance(img, torch.Tensor):
+                return torch.flip(img, dims=[-2])
+            return img.transpose(_PIL_TRANSPOSE.FLIP_TOP_BOTTOM)
 
 # Encourage TensorFlow to grow GPU memory usage as needed rather than
 # pre-allocating the full device. This makes it easier to run multiple
@@ -526,8 +570,8 @@ class CellsDataset(Dataset):
         if train and augment:
             self.transform = transforms.Compose(
                 [
-                    transforms.RandomHorizontalFlip(),
-                    transforms.RandomVerticalFlip(),
+                    RandomHorizontalFlip(),
+                    RandomVerticalFlip(),
                     transforms.RandomRotation(90),
                     *base,
                 ]
