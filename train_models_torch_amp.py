@@ -17,6 +17,44 @@ import warnings
 # ------------------------------------------------------------------
 _PIL_TRANSPOSE = getattr(Image, "Transpose", Image)
 
+def _resolve_torch_device(cfg: dict) -> torch.device:
+    raw = (
+        (cfg or {}).get('device')
+        or (cfg or {}).get('torch_device')
+        or (cfg or {}).get('pytorch_device')
+    )
+    if raw is None or str(raw).strip() == '':
+        return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    dev_str = str(raw).strip().lower()
+
+    if dev_str.startswith('cuda'):
+        if not torch.cuda.is_available():
+            raise RuntimeError(f"Config requested device={raw!r}, but CUDA is not available in this environment.")
+
+        idx = 0
+        if ':' in dev_str:
+            _, idx_str = dev_str.split(':', 1)
+            idx = int(idx_str)
+        n = torch.cuda.device_count()
+        if idx < 0 or idx >= n:
+            raise RuntimeError(
+                f"Config requested device={raw!r}, but this environment reports {n} CUDA device(s)."
+            )
+        torch.cuda.set_device(idx)
+        return torch.device(f'cuda:{idx}')
+
+    if dev_str == 'cpu':
+        return torch.device('cpu')
+
+    if dev_str == 'mps':
+        if getattr(torch.backends, 'mps', None) is None or not torch.backends.mps.is_available():
+            raise RuntimeError(f"Config requested device={raw!r}, but MPS is not available in this environment.")
+        return torch.device('mps')
+
+    # Let torch validate other/rare device strings (e.g., 'xpu', 'cuda:0' variants, etc.)
+    return torch.device(str(raw).strip())
+
 try:
     RandomHorizontalFlip = transforms.RandomHorizontalFlip
 except AttributeError:
@@ -104,6 +142,7 @@ from pathlib import Path
 
 ARGS = None
 CFG = {}
+TORCH_DEVICE = None
 GLOBAL_SEED = 42
 if __name__ == '__main__':
     import argparse
@@ -153,6 +192,9 @@ if __name__ == '__main__':
     except Exception:
         # Torch not available or failed to seed; continue anyway.
         pass
+
+    TORCH_DEVICE = _resolve_torch_device(CFG)
+    print('PyTorch device:', TORCH_DEVICE)
 
 # Build a real (labeled) single-cell dataset from the downloaded `Zagajewski_Data` (MG1655)
 # Section 4 shows this structure exists:
@@ -674,7 +716,7 @@ def _run_torch_training(
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = TORCH_DEVICE or _resolve_torch_device(CFG)
     model = _build_torch_model(num_classes, dropout_rate, init_source=INIT_SOURCE).to(device)
     optimizer = _build_optimizer(model.parameters(), optimizer_name, lr=learning_rate)
     criterion = nn.CrossEntropyLoss()
@@ -915,7 +957,7 @@ except Exception as e:
 
 # Hold-out test evaluation (if test set is available)
 if X_test and y_test:
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = TORCH_DEVICE or _resolve_torch_device(CFG)
     ckpt_path = best_retrain_dst if 'best_retrain_dst' in globals() else final_ckpt
     if ckpt_path is not None and os.path.isfile(ckpt_path):
         state = torch.load(ckpt_path, map_location=device)
