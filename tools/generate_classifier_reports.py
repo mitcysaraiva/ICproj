@@ -41,6 +41,48 @@ def _maybe_import_deps():
     globals()["np"] = _np
 
 
+def _find_repo_root_with_models(start: Path) -> Path | None:
+    """
+    Walk upwards from `start` looking for a repo root that contains `models/classification`.
+    This makes it safe to run the script from inside `tools/` without needing `--repo-root ..`.
+    """
+    start = start.resolve()
+    for p in (start, *start.parents):
+        if (p / "models" / "classification").exists():
+            return p
+    return None
+
+
+def _find_models_root_under(start: Path, *, max_depth: int = 4) -> Path | None:
+    """
+    Search downward under `start` for a `models/classification` directory.
+    Helpful when the real training repo lives in a subfolder (e.g. `.../Deep-...-main/`).
+    """
+    start = start.resolve()
+    if (start / "models" / "classification").exists():
+        return start / "models" / "classification"
+
+    start_depth = len(start.parts)
+    best: Path | None = None
+    best_mtime = -1.0
+
+    for p in start.rglob("models/classification"):
+        try:
+            depth = len(p.parts) - start_depth
+            if depth > max_depth:
+                continue
+            if not p.is_dir():
+                continue
+            mtime = p.stat().st_mtime
+            if mtime > best_mtime:
+                best = p
+                best_mtime = mtime
+        except Exception:
+            continue
+
+    return best
+
+
 RUN_RE = re.compile(
     r"^(?P<prefix>optuna_)?(?P<model>EfficientNetB0)_(?P<condtag>.+?)_"
     r"(?P<splitmode>patientSplitOn|patientSplitOff)_(?P<overlap>overlap|noOverlap)_"
@@ -479,6 +521,14 @@ def main():
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).expanduser().resolve()
+
+    # If user runs from within `tools/` with the default `--repo-root .`, auto-correct to the real repo root.
+    # Respect explicit `--models-root` (i.e., don't rewrite their intent).
+    if args.models_root is None and not (repo_root / "models" / "classification").exists():
+        auto_root = _find_repo_root_with_models(repo_root) or _find_repo_root_with_models(Path(__file__).resolve().parent)
+        if auto_root is not None:
+            repo_root = auto_root
+
     models_root = Path(args.models_root).expanduser().resolve() if args.models_root else (repo_root / "models" / "classification")
     data_root = Path(args.data_root).expanduser().resolve() if args.data_root else (repo_root / "data")
     images_root = (
@@ -486,6 +536,17 @@ def main():
         if args.images_root
         else (repo_root / "data" / "Zagajewski_Data" / "Data" / "MG1655" / "All_images")
     )
+
+    # If the expected layout doesn't exist, try to auto-locate a nested training repo.
+    if args.models_root is None and not models_root.exists():
+        found_models_root = _find_models_root_under(repo_root, max_depth=5)
+        if found_models_root is not None:
+            models_root = found_models_root
+            inferred_root = found_models_root.parent.parent  # .../<repo>/models/classification -> <repo>
+            if args.data_root is None and (inferred_root / "data").exists():
+                data_root = inferred_root / "data"
+            if args.images_root is None and (inferred_root / "data" / "Zagajewski_Data" / "Data" / "MG1655" / "All_images").exists():
+                images_root = inferred_root / "data" / "Zagajewski_Data" / "Data" / "MG1655" / "All_images"
     out_root = Path(args.output_dir).expanduser().resolve()
     run_out = out_root / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_out.mkdir(parents=True, exist_ok=True)
@@ -496,8 +557,8 @@ def main():
     slug_map = _discover_slug_to_condition(images_root)
     if not slug_map:
         print(
-            "WARNING: could not discover raw condition names from images_root. "
-            "Falling back to slug-based matching."
+            f"WARNING: could not discover raw condition names from images_root={images_root}. "
+            "Falling back to slug-based matching (this is OK if you only trained WT+ANTIBIOTIC pairs)."
         )
 
     abx_filter = None
