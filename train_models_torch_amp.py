@@ -258,7 +258,33 @@ for cond in COND_IDS:
 train_split = DATASET_OUT / 'Train'
 val_split = DATASET_OUT / 'Validation'
 test_split = DATASET_OUT / 'Test'
-if not ((train_split / 'images').exists() and (train_split / 'annots').exists()):
+
+def _split_has_expected_layout(split_root: Path) -> bool:
+    return (split_root / 'images').exists() and (split_root / 'annots').exists()
+
+REBUILD_DATASET = bool(CFG.get('rebuild_dataset', False))
+missing_splits = [
+    name
+    for name, split_root in [('Train', train_split), ('Validation', val_split), ('Test', test_split)]
+    if not _split_has_expected_layout(split_root)
+]
+
+if REBUILD_DATASET and DATASET_OUT.exists():
+    print('Rebuilding dataset (deleting):', DATASET_OUT)
+    shutil.rmtree(DATASET_OUT)
+    missing_splits = ['Train', 'Validation', 'Test']
+
+if missing_splits:
+    if DATASET_OUT.exists() and not REBUILD_DATASET:
+        # A partially-created dataset can cause missing split folders and/or leakage across splits if re-run.
+        # The safest fix is to remove split subfolders and recreate them deterministically.
+        print('Dataset split folder(s) missing:', missing_splits)
+        print('Repairing dataset by deleting existing split subfolders under:', DATASET_OUT)
+        for name in ('Train', 'Validation', 'Test'):
+            p = DATASET_OUT / name
+            if p.exists():
+                shutil.rmtree(p)
+
     print('Creating classification dataset at:', DATASET_OUT)
     TrainTestVal_split(
         data_sources=image_sources,

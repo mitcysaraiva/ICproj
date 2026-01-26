@@ -13,6 +13,10 @@ conditions:
 
 patient_split: false
 
+# Set to true to force recreating `data/classifier_dataset_...` (recommended if you change `test_size`, `val_size`,
+# or if a previous run was interrupted and left an incomplete split folder layout).
+rebuild_dataset: false
+
 test_size: 0.10
 val_size: 0.20
 
