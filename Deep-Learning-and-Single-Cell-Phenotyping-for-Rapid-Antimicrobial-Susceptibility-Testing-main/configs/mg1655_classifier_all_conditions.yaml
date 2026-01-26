@@ -11,6 +11,11 @@ conditions:
   - "GENT+ETOH"
   - "RIF+ETOH"
 
+# Backbone model for training.
+# Supported (Torch AMP script): EfficientNetB0, DenseNet121
+# Supported (Keras script): EfficientNetB0, DenseNet121
+model: "EfficientNetB0"
+
 patient_split: false
 
 # Set to true to force recreating `data/classifier_dataset_...` (recommended if you change `test_size`, `val_size`,

@@ -608,7 +608,7 @@ SPLIT_TAG = f"{SPLIT_MODE_TAG}_{OVERLAP_TAG}"
 # PyTorch model + training
 # -----------------------------
 
-MODEL_TYPE = 'EfficientNetB0'
+MODEL_TYPE = str(CFG.get('model') or CFG.get('mode') or 'EfficientNetB0')
 INIT_SOURCE = 'imagenet'  # ImageNet pretrained weights
 TARGET_SIZE = CROP_TARGET_SIZE
 NUM_CLASSES = len(COND_IDS)
@@ -665,24 +665,48 @@ class CellsDataset(Dataset):
         return x, y
 
 
-def _build_torch_model(num_classes: int, dropout_rate: float, init_source: str = 'imagenet') -> nn.Module:
-    try:
-        from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+def _build_torch_model(model_type: str, num_classes: int, dropout_rate: float, init_source: str = 'imagenet') -> nn.Module:
+    model_type = str(model_type)
 
-        weights = EfficientNet_B0_Weights.IMAGENET1K_V1 if init_source == 'imagenet' else None
-        model = efficientnet_b0(weights=weights)
-    except Exception:
-        from torchvision import models as _models
+    if model_type == 'EfficientNetB0':
+        try:
+            from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 
-        model = _models.efficientnet_b0(pretrained=(init_source == 'imagenet'))
+            weights = EfficientNet_B0_Weights.IMAGENET1K_V1 if init_source == 'imagenet' else None
+            model = efficientnet_b0(weights=weights)
+        except Exception:
+            from torchvision import models as _models
 
-    in_features = model.classifier[1].in_features
-    head_layers = []
-    if dropout_rate > 0:
-        head_layers.append(nn.Dropout(p=float(dropout_rate)))
-    head_layers.append(nn.Linear(in_features, num_classes))
-    model.classifier[1] = nn.Sequential(*head_layers)
-    return model
+            model = _models.efficientnet_b0(pretrained=(init_source == 'imagenet'))
+
+        in_features = model.classifier[1].in_features
+        head_layers = []
+        if dropout_rate > 0:
+            head_layers.append(nn.Dropout(p=float(dropout_rate)))
+        head_layers.append(nn.Linear(in_features, num_classes))
+        model.classifier[1] = nn.Sequential(*head_layers)
+        return model
+
+    if model_type == 'DenseNet121':
+        try:
+            from torchvision.models import densenet121, DenseNet121_Weights
+
+            weights = DenseNet121_Weights.IMAGENET1K_V1 if init_source == 'imagenet' else None
+            model = densenet121(weights=weights)
+        except Exception:
+            from torchvision import models as _models
+
+            model = _models.densenet121(pretrained=(init_source == 'imagenet'))
+
+        in_features = model.classifier.in_features
+        head_layers = []
+        if dropout_rate > 0:
+            head_layers.append(nn.Dropout(p=float(dropout_rate)))
+        head_layers.append(nn.Linear(in_features, num_classes))
+        model.classifier = nn.Sequential(*head_layers)
+        return model
+
+    raise ValueError(f'Unsupported model={model_type!r}. Supported: EfficientNetB0, DenseNet121')
 
 
 def _build_optimizer(params, name: str, lr: float):
@@ -704,6 +728,7 @@ def _run_torch_training(
     X_val,
     y_val,
     *,
+    model_type: str,
     num_classes: int,
     batch_size: int,
     epochs: int,
@@ -743,7 +768,7 @@ def _run_torch_training(
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=0)
 
     device = TORCH_DEVICE or _resolve_torch_device(CFG)
-    model = _build_torch_model(num_classes, dropout_rate, init_source=INIT_SOURCE).to(device)
+    model = _build_torch_model(model_type, num_classes, dropout_rate, init_source=INIT_SOURCE).to(device)
     optimizer = _build_optimizer(model.parameters(), optimizer_name, lr=learning_rate)
     criterion = nn.CrossEntropyLoss()
 
@@ -752,6 +777,12 @@ def _run_torch_training(
     best_val_acc = -1.0
     best_ckpt_path = os.path.join(logdir, 'best_model.pth')
     epochs_no_improve = 0
+
+    # Persist per-epoch history for later plotting (server reporting).
+    import csv
+
+    history_path = os.path.join(logdir, 'history.csv')
+    history_rows = []
 
     for epoch in range(epochs):
         model.train()
@@ -800,6 +831,23 @@ def _run_torch_training(
         val_loss = val_loss_sum / max(1, val_total)
         val_acc = val_correct / max(1, val_total)
 
+        history_rows.append(
+            {
+                'epoch': int(epoch + 1),
+                'train_loss': float(train_loss),
+                'train_acc': float(train_acc),
+                'val_loss': float(val_loss),
+                'val_acc': float(val_acc),
+            }
+        )
+        try:
+            with open(history_path, 'w', newline='') as f:
+                w = csv.DictWriter(f, fieldnames=['epoch', 'train_loss', 'train_acc', 'val_loss', 'val_acc'])
+                w.writeheader()
+                w.writerows(history_rows)
+        except Exception as e:
+            print('WARNING: failed to write history.csv:', e)
+
         print(
             f'Epoch {epoch + 1}/{epochs} - '
             f'train_loss={train_loss:.4f}, train_acc={train_acc:.4f}, '
@@ -824,6 +872,9 @@ def _run_torch_training(
             epochs_no_improve = 0
             torch.save(
                 {
+                    'arch': str(model_type),
+                    'num_classes': int(num_classes),
+                    'dropout_rate': float(dropout_rate),
                     'model_state': model.state_dict(),
                     'optimizer_state': optimizer.state_dict(),
                     'epoch': epoch + 1,
@@ -885,6 +936,7 @@ if DO_OPTUNA:
             y_train,
             X_val,
             y_val,
+            model_type=MODEL_TYPE,
             num_classes=NUM_CLASSES,
             batch_size=BATCH_SIZE,
             epochs=EPOCHS_TUNE,
@@ -956,6 +1008,7 @@ final_val_acc, final_ckpt = _run_torch_training(
     y_train,
     X_val,
     y_val,
+    model_type=MODEL_TYPE,
     num_classes=NUM_CLASSES,
     batch_size=BATCH_SIZE,
     epochs=EPOCHS,
@@ -987,8 +1040,9 @@ if X_test and y_test:
     ckpt_path = best_retrain_dst if 'best_retrain_dst' in globals() else final_ckpt
     if ckpt_path is not None and os.path.isfile(ckpt_path):
         state = torch.load(ckpt_path, map_location=device)
-        model = _build_torch_model(NUM_CLASSES, DROPOUT, init_source=INIT_SOURCE).to(device)
-        model.load_state_dict(state['model_state'])
+        model = _build_torch_model(state.get('arch', MODEL_TYPE), int(state.get('num_classes', NUM_CLASSES)), float(state.get('dropout_rate', DROPOUT)), init_source=INIT_SOURCE).to(device)
+        model_state = state['model_state'] if isinstance(state, dict) and 'model_state' in state else state
+        model.load_state_dict(model_state)
         model.eval()
 
         test_ds = CellsDataset(np.asarray(X_test), np.asarray(y_test, dtype='int64'), train=False, augment=False)

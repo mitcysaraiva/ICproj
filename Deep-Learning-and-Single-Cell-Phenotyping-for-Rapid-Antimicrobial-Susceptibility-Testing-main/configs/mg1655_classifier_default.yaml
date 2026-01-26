@@ -2,6 +2,11 @@ conditions:
   - "WT+ETOH"
   - "CIP+ETOH"
 
+# Backbone model for training.
+# Supported (Torch AMP script): EfficientNetB0, DenseNet121
+# Supported (Keras script): EfficientNetB0, DenseNet121
+model: "EfficientNetB0"
+
 patient_split: false
 
 test_size: 0.10

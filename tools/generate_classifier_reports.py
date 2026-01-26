@@ -84,7 +84,7 @@ def _find_models_root_under(start: Path, *, max_depth: int = 4) -> Path | None:
 
 
 RUN_RE = re.compile(
-    r"^(?P<prefix>optuna_)?(?P<model>EfficientNetB0)_(?P<condtag>.+?)_"
+    r"^(?P<prefix>optuna_)?(?P<model>[A-Za-z0-9]+)_(?P<condtag>.+?)_"
     r"(?P<splitmode>patientSplitOn|patientSplitOff)_(?P<overlap>overlap|noOverlap)_"
     r"(?P<dt>\d{8}-\d{6})(?:_pid(?P<pid>\d+))?$"
 )
@@ -292,32 +292,70 @@ def _infer_head_from_state_dict(state_dict: dict) -> tuple[int, bool]:
         return int(w1.shape[0]), True
     if w0 is not None:
         return int(w0.shape[0]), False
+    # DenseNet: classifier = Sequential([Dropout?], Linear) OR Linear
+    dw0 = state_dict.get("classifier.0.weight")
+    dw1 = state_dict.get("classifier.1.weight")
+    if dw1 is not None:
+        return int(dw1.shape[0]), True
+    if dw0 is not None:
+        return int(dw0.shape[0]), False
+    dw = state_dict.get("classifier.weight")
+    if dw is not None:
+        return int(dw.shape[0]), False
     # Fallback: find last weight tensor that looks like a classifier.
     for k, v in state_dict.items():
         if k.endswith(".weight") and hasattr(v, "shape") and len(getattr(v, "shape", ())) == 2:
             return int(v.shape[0]), False
     raise ValueError("Could not infer classifier head from checkpoint state_dict.")
 
+def _infer_arch_from_state_dict(state_dict: dict) -> str:
+    # EfficientNet uses keys like "features.0.0.weight"; DenseNet uses "features.conv0.weight".
+    if any(k.startswith("features.conv0.") for k in state_dict.keys()):
+        return "DenseNet121"
+    return "EfficientNetB0"
 
-def _build_model(num_classes: int, has_dropout: bool):
+
+def _build_model(model_type: str, num_classes: int, has_dropout: bool):
     import torch.nn as nn
 
-    try:
-        from torchvision.models import efficientnet_b0
+    model_type = str(model_type)
+    if model_type == "EfficientNetB0":
+        try:
+            from torchvision.models import efficientnet_b0
 
-        model = efficientnet_b0(weights=None)
-    except Exception:
-        from torchvision import models as _models
+            model = efficientnet_b0(weights=None)
+        except Exception:
+            from torchvision import models as _models
 
-        model = _models.efficientnet_b0(pretrained=False)
+            model = _models.efficientnet_b0(pretrained=False)
 
-    in_features = model.classifier[1].in_features
-    head_layers = []
-    if has_dropout:
-        head_layers.append(nn.Dropout(p=0.2))
-    head_layers.append(nn.Linear(in_features, num_classes))
-    model.classifier[1] = nn.Sequential(*head_layers)
-    return model
+        in_features = model.classifier[1].in_features
+        head_layers = []
+        if has_dropout:
+            head_layers.append(nn.Dropout(p=0.2))
+        head_layers.append(nn.Linear(in_features, num_classes))
+        model.classifier[1] = nn.Sequential(*head_layers)
+        return model
+
+    if model_type == "DenseNet121":
+        try:
+            from torchvision.models import densenet121
+
+            model = densenet121(weights=None)
+        except Exception:
+            from torchvision import models as _models
+
+            model = _models.densenet121(pretrained=False)
+
+        in_features = model.classifier.in_features
+        head_layers = []
+        if has_dropout:
+            head_layers.append(nn.Dropout(p=0.2))
+        head_layers.append(nn.Linear(in_features, num_classes))
+        model.classifier = nn.Sequential(*head_layers)
+        return model
+
+    raise ValueError(f"Unsupported model_type={model_type!r}")
 
 
 def _load_checkpoint(ckpt_path: Path):
@@ -330,6 +368,87 @@ def _load_checkpoint(ckpt_path: Path):
         # Could be a raw state_dict or something similar.
         return obj
     raise TypeError(f"Unsupported checkpoint format: {ckpt_path}")
+
+
+def _load_checkpoint_meta(ckpt_path: Path) -> dict:
+    import torch
+
+    obj = torch.load(str(ckpt_path), map_location="cpu")
+    return obj if isinstance(obj, dict) else {}
+
+
+def _read_history_csv(path: Path) -> dict[str, list[float]]:
+    import csv
+
+    out = {"epoch": [], "train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
+    if not path.exists():
+        return out
+    with path.open("r", newline="") as f:
+        r = csv.DictReader(f)
+        for row in r:
+            for k in out.keys():
+                try:
+                    out[k].append(float(row[k]))
+                except Exception:
+                    out[k].append(float("nan"))
+    return out
+
+
+def _best_optuna_trial_dir(tune_dir: Path) -> Path | None:
+    import csv
+
+    trials_csv = tune_dir / "trials.csv"
+    if not trials_csv.exists():
+        return None
+    best_num = None
+    best_val = float("-inf")
+    with trials_csv.open("r", newline="") as f:
+        r = csv.DictReader(f)
+        for row in r:
+            try:
+                num = int(row["number"])
+                val = float(row["value"])
+            except Exception:
+                continue
+            if val > best_val:
+                best_val = val
+                best_num = num
+    if best_num is None:
+        return None
+    p = tune_dir / f"trial_{best_num:03d}"
+    return p if p.is_dir() else None
+
+
+def _plot_learning_curves(history: dict[str, list[float]], title: str, outpath: Path):
+    import matplotlib.pyplot as plt
+
+    epochs = history.get("epoch", [])
+    if not epochs:
+        return
+    train_loss = history.get("train_loss", [])
+    val_loss = history.get("val_loss", [])
+    train_acc = history.get("train_acc", [])
+    val_acc = history.get("val_acc", [])
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7.2, 6.0), sharex=True)
+    fig.suptitle(title)
+
+    ax1.plot(epochs, train_loss, label="train")
+    ax1.plot(epochs, val_loss, label="validation")
+    ax1.set_ylabel("Cross Entropy Loss")
+    ax1.legend(loc="best")
+
+    ax2.plot(epochs, train_acc, label="train")
+    ax2.plot(epochs, val_acc, label="validation")
+    ax2.set_ylabel("Accuracy")
+    ax2.set_xlabel("Epoch")
+    ax2.set_title("Classification Accuracy")
+    ax2.legend(loc="best")
+
+    fig.tight_layout(rect=(0, 0.02, 1, 0.96))
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(outpath, dpi=180, bbox_inches="tight")
+    plt.close(fig)
 
 
 def _evaluate_split(
@@ -580,7 +699,7 @@ def main():
     if not runs:
         raise RuntimeError(f"No matching run directories found under: {models_root}")
 
-    # Group into (antibiotic, splitmode) -> latest optuna + latest retrain
+    # Group into (antibiotic, splitmode) -> best optuna + best retrain.
     grouped: dict[tuple[str, str], dict[str, RunInfo]] = {}
     for r in runs:
         cond_slugs = _cond_slugs_from_condtag(r.condtag)
@@ -594,8 +713,35 @@ def main():
             grouped[key] = {}
         kind = "study" if r.is_optuna else "retrain"
         prev = grouped[key].get(kind)
-        if prev is None or prev.sort_key < r.sort_key:
+        if prev is None:
             grouped[key][kind] = r
+        else:
+            # Prefer higher val_acc if available; fallback to newer timestamp.
+            def _score(run: RunInfo) -> float | None:
+                ckpt = run.run_dir / ("best_study_model.pth" if run.is_optuna else "best_retrain_model.pth")
+                if not ckpt.exists():
+                    ckpt = run.run_dir / "best_model.pth"
+                if not ckpt.exists():
+                    return None
+                meta = _load_checkpoint_meta(ckpt)
+                try:
+                    return float(meta.get("val_acc"))
+                except Exception:
+                    return None
+
+            s_prev = _score(prev)
+            s_new = _score(r)
+            if s_prev is None and s_new is None:
+                if prev.sort_key < r.sort_key:
+                    grouped[key][kind] = r
+            elif s_prev is None and s_new is not None:
+                grouped[key][kind] = r
+            elif s_prev is not None and s_new is None:
+                pass
+            else:
+                assert s_prev is not None and s_new is not None
+                if s_new > s_prev or (s_new == s_prev and prev.sort_key < r.sort_key):
+                    grouped[key][kind] = r
 
     if not grouped:
         raise RuntimeError("No runs left after filtering.")
@@ -664,14 +810,37 @@ def main():
                 report_lines.append("")
                 continue
 
-            state_dict = _load_checkpoint(ckpt)
+            ckpt_meta = _load_checkpoint_meta(ckpt)
+            state_dict = ckpt_meta["model_state"] if "model_state" in ckpt_meta else _load_checkpoint(ckpt)
             num_classes, has_dropout = _infer_head_from_state_dict(state_dict)
-            model = _build_model(num_classes=num_classes, has_dropout=has_dropout)
+            model_type = str(ckpt_meta.get("arch") or run.model_type or _infer_arch_from_state_dict(state_dict))
+            model = _build_model(model_type=model_type, num_classes=num_classes, has_dropout=has_dropout)
             model.load_state_dict(state_dict, strict=True)
             model.to(device)
 
             report_lines.append(f"{kind}: {ckpt}")
-            report_lines.append(f"  inferred num_classes={num_classes}, head_dropout={'yes' if has_dropout else 'no'}")
+            report_lines.append(
+                f"  inferred arch={model_type}, num_classes={num_classes}, head_dropout={'yes' if has_dropout else 'no'}"
+            )
+
+            # Learning curves (if present)
+            hist_path = None
+            if kind == "retrain":
+                hp = run.run_dir / "history.csv"
+                if hp.exists():
+                    hist_path = hp
+            else:
+                best_trial = _best_optuna_trial_dir(run.run_dir)
+                if best_trial is not None and (best_trial / "history.csv").exists():
+                    hist_path = best_trial / "history.csv"
+
+            if hist_path is not None:
+                hist = _read_history_csv(hist_path)
+                _plot_learning_curves(
+                    hist,
+                    title=str(run.run_dir.name),
+                    outpath=run_out / abx / splitmode / kind / "learning_curves.png",
+                )
 
             results = {}
             for split_name, split_root in split_roots.items():
@@ -748,6 +917,10 @@ def main():
                     f"  {split_name}: n={r['n']}, acc={r['acc']:.4f}, f1={r['f1']:.4f}"
                     + (f", auc={r['auc']:.4f}" if r.get("auc") is not None else ", auc=NA")
                 )
+                if split_name == "test" and "cm" in r:
+                    report_lines.append("  hold-out test confusion_matrix (rows=true, cols=pred):")
+                    for row in np.asarray(r["cm"]).astype(int).tolist():
+                        report_lines.append("    " + " ".join(f"{v:6d}" for v in row))
                 if split_name == "test" and r.get("classification_report"):
                     report_lines.append("  hold-out test classification_report:")
                     report_lines.extend(["    " + ln for ln in str(r["classification_report"]).splitlines()])
@@ -762,13 +935,7 @@ def main():
                 )
             )
 
-        # Train vs Val accuracy plot (bars) for this antibiotic+splitmode
-        if per_model_acc:
-            _plot_train_val_accuracy(
-                title=f"{abx} - {splitmode} (train vs val accuracy)",
-                series=per_model_acc,
-                outpath=run_out / abx / splitmode / "train_val_accuracy.png",
-            )
+        # (Optional) bar summary removed; prefer per-run learning_curves.png (when history.csv exists).
 
     report_path = run_out / "metrics.txt"
     report_path.write_text("\n".join(report_lines) + "\n", encoding="utf-8")

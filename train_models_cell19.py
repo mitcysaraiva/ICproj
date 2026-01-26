@@ -463,7 +463,7 @@ OVERLAP_TAG = 'overlap' if HAS_SPLIT_OVERLAP else 'noOverlap'
 SPLIT_TAG = f"{SPLIT_MODE_TAG}_{OVERLAP_TAG}"
 
 # Model / training defaults
-MODEL_TYPE = 'EfficientNetB0'
+MODEL_TYPE = str(CFG.get('model') or CFG.get('mode') or 'EfficientNetB0')
 INIT_SOURCE = 'imagenet'  # ImageNet pretrained weights
 TARGET_SIZE = CROP_TARGET_SIZE
 NUM_CLASSES = len(COND_IDS)

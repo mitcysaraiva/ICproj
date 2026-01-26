@@ -1,0 +1,244 @@
+Classifier evaluation report - generated 2026-01-26T11:49:48.174943
+repo_root: /home/luciano/Akio_o_brabo/ICproj
+models_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification
+data_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data
+images_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data/Zagajewski_Data/Data/MG1655/All_images
+max_per_class: 2000
+batch_size: 64
+
+========================================================================================
+ANTIBIOTIC: CIP | split: patientSplitOff | conditions: ['WT+ETOH', 'CIP+ETOH']
+dataset_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data/classifier_dataset_mg1655_WT_ETOH__CIP_ETOH__COAMOX_ETOH__GENT_ETOH__RIF_ETOH_t10_v20
+
+study: checkpoint not found under /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/optuna_EfficientNetB0_WT_ETOH_CIP_ETOH_patientSplitOff_overlap_20260123-214632
+
+retrain: checkpoint not found under /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/EfficientNetB0_WT_ETOH_CIP_ETOH_patientSplitOff_overlap_20260124-151024
+
+========================================================================================
+ANTIBIOTIC: COAMOX | split: patientSplitOff | conditions: ['WT+ETOH', 'COAMOX+ETOH']
+dataset_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data/classifier_dataset_mg1655_WT_ETOH__CIP_ETOH__COAMOX_ETOH__GENT_ETOH__RIF_ETOH_t10_v20
+
+study: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/optuna_EfficientNetB0_WT_ETOH_COAMOX_ETOH_patientSplitOff_overlap_20260124-233638_pid4187552/best_study_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.8742, f1=0.8740, auc=0.9507
+  val: n=3456, acc=0.8762, f1=0.8563, auc=0.9474
+  test: n=2773, acc=0.8839, f1=0.8121, auc=0.9570
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9580    0.8775    0.9160      2000
+     COAMOX+ETOH     0.7396    0.9004    0.8121       773
+    
+        accuracy                         0.8839      2773
+       macro avg     0.8488    0.8889    0.8641      2773
+    weighted avg     0.8971    0.8839    0.8870      2773
+
+retrain: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/EfficientNetB0_WT_ETOH_COAMOX_ETOH_patientSplitOff_overlap_20260125-093916_pid4187552/best_retrain_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.8528, f1=0.8524, auc=0.9311
+  val: n=3456, acc=0.8565, f1=0.8337, auc=0.9311
+  test: n=2773, acc=0.8561, f1=0.7726, auc=0.9386
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9470    0.8480    0.8948      2000
+     COAMOX+ETOH     0.6904    0.8771    0.7726       773
+    
+        accuracy                         0.8561      2773
+       macro avg     0.8187    0.8626    0.8337      2773
+    weighted avg     0.8754    0.8561    0.8607      2773
+
+========================================================================================
+ANTIBIOTIC: COAMOX | split: patientSplitOn | conditions: ['WT+ETOH', 'COAMOX+ETOH']
+dataset_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data/classifier_dataset_mg1655_WT_ETOH__CIP_ETOH__COAMOX_ETOH__GENT_ETOH__RIF_ETOH_t10_v20
+
+study: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/optuna_EfficientNetB0_WT_ETOH_COAMOX_ETOH_patientSplitOn_noOverlap_20260124-234301_pid4191514/best_study_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.7615, f1=0.7815, auc=0.8576
+  val: n=3456, acc=0.8197, f1=0.8048, auc=0.9086
+  test: n=2773, acc=0.7569, f1=0.6693, auc=0.8861
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9397    0.7085    0.8079      2000
+     COAMOX+ETOH     0.5391    0.8823    0.6693       773
+    
+        accuracy                         0.7569      2773
+       macro avg     0.7394    0.7954    0.7386      2773
+    weighted avg     0.8280    0.7569    0.7692      2773
+
+retrain: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/EfficientNetB0_WT_ETOH_COAMOX_ETOH_patientSplitOn_noOverlap_20260125-041407_pid4191514/best_retrain_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.7670, f1=0.7856, auc=0.8499
+  val: n=3456, acc=0.7928, f1=0.7663, auc=0.8703
+  test: n=2773, acc=0.7887, f1=0.6886, auc=0.8808
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9249    0.7695    0.8401      2000
+     COAMOX+ETOH     0.5843    0.8383    0.6886       773
+    
+        accuracy                         0.7887      2773
+       macro avg     0.7546    0.8039    0.7643      2773
+    weighted avg     0.8299    0.7887    0.7979      2773
+
+========================================================================================
+ANTIBIOTIC: GENT | split: patientSplitOff | conditions: ['WT+ETOH', 'GENT+ETOH']
+dataset_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data/classifier_dataset_mg1655_WT_ETOH__CIP_ETOH__COAMOX_ETOH__GENT_ETOH__RIF_ETOH_t10_v20
+
+study: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/optuna_EfficientNetB0_WT_ETOH_GENT_ETOH_patientSplitOff_overlap_20260125-163107_pid579335/best_study_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.9812, f1=0.9811, auc=0.9979
+  val: n=3570, acc=0.9720, f1=0.9683, auc=0.9960
+  test: n=2882, acc=0.9833, f1=0.9731, auc=0.9980
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9924    0.9835    0.9879      2000
+       GENT+ETOH     0.9633    0.9830    0.9731       882
+    
+        accuracy                         0.9833      2882
+       macro avg     0.9779    0.9832    0.9805      2882
+    weighted avg     0.9835    0.9833    0.9834      2882
+
+retrain: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/EfficientNetB0_WT_ETOH_GENT_ETOH_patientSplitOff_overlap_20260126-035202_pid579335/best_retrain_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.9882, f1=0.9882, auc=0.9989
+  val: n=3570, acc=0.9739, f1=0.9706, auc=0.9971
+  test: n=2882, acc=0.9872, f1=0.9792, auc=0.9986
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9935    0.9880    0.9907      2000
+       GENT+ETOH     0.9731    0.9853    0.9792       882
+    
+        accuracy                         0.9872      2882
+       macro avg     0.9833    0.9866    0.9849      2882
+    weighted avg     0.9872    0.9872    0.9872      2882
+
+========================================================================================
+ANTIBIOTIC: GENT | split: patientSplitOn | conditions: ['WT+ETOH', 'GENT+ETOH']
+dataset_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data/classifier_dataset_mg1655_WT_ETOH__CIP_ETOH__COAMOX_ETOH__GENT_ETOH__RIF_ETOH_t10_v20
+
+study: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/optuna_EfficientNetB0_WT_ETOH_GENT_ETOH_patientSplitOn_noOverlap_20260125-162507_pid575357/best_study_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.9795, f1=0.9796, auc=0.9975
+  val: n=3570, acc=0.9627, f1=0.9586, auc=0.9946
+  test: n=2882, acc=0.9813, f1=0.9699, auc=0.9983
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9934    0.9795    0.9864      2000
+       GENT+ETOH     0.9549    0.9853    0.9699       882
+    
+        accuracy                         0.9813      2882
+       macro avg     0.9742    0.9824    0.9781      2882
+    weighted avg     0.9816    0.9813    0.9813      2882
+
+retrain: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/EfficientNetB0_WT_ETOH_GENT_ETOH_patientSplitOn_noOverlap_20260126-000015_pid575357/best_retrain_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.9802, f1=0.9802, auc=0.9981
+  val: n=3570, acc=0.9630, f1=0.9590, auc=0.9955
+  test: n=2882, acc=0.9778, f1=0.9644, auc=0.9973
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9919    0.9760    0.9839      2000
+       GENT+ETOH     0.9475    0.9819    0.9644       882
+    
+        accuracy                         0.9778      2882
+       macro avg     0.9697    0.9789    0.9741      2882
+    weighted avg     0.9783    0.9778    0.9779      2882
+
+========================================================================================
+ANTIBIOTIC: MULTI | split: patientSplitOff | conditions: ['WT+ETOH', 'CIP+ETOH', 'COAMOX+ETOH', 'GENT+ETOH', 'RIF+ETOH']
+dataset_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data/classifier_dataset_mg1655_WT_ETOH__CIP_ETOH__COAMOX_ETOH__GENT_ETOH__RIF_ETOH_t10_v20
+
+study: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/optuna_EfficientNetB0_WT_ETOH_CIP_ETOH_COAMOX_ETOH_GENT_ETOH_RIF_ETOH_patientSplitOff_overlap_20260125-191925_pid672703/best_study_model.pth
+  inferred num_classes=5, head_dropout=yes
+  train: n=10000, acc=0.8430, f1=0.8430, auc=0.9725
+  val: n=9026, acc=0.8715, f1=0.8713, auc=0.9828
+  test: n=7655, acc=0.9116, f1=0.9005, auc=0.9909
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9050    0.8480    0.8756      2000
+        CIP+ETOH     0.9640    0.9635    0.9637      2000
+     COAMOX+ETOH     0.7278    0.8784    0.7960       773
+       GENT+ETOH     0.8826    0.9887    0.9326       882
+        RIF+ETOH     0.9694    0.9020    0.9345      2000
+    
+        accuracy                         0.9116      7655
+       macro avg     0.8897    0.9161    0.9005      7655
+    weighted avg     0.9168    0.9116    0.9125      7655
+
+retrain: MISSING
+
+========================================================================================
+ANTIBIOTIC: RIF | split: patientSplitOff | conditions: ['WT+ETOH', 'RIF+ETOH']
+dataset_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data/classifier_dataset_mg1655_WT_ETOH__CIP_ETOH__COAMOX_ETOH__GENT_ETOH__RIF_ETOH_t10_v20
+
+study: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/optuna_EfficientNetB0_WT_ETOH_RIF_ETOH_patientSplitOff_overlap_20260125-000718_pid12860/best_study_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.9610, f1=0.9603, auc=0.9934
+  val: n=4000, acc=0.9327, f1=0.9307, auc=0.9850
+  test: n=4000, acc=0.9487, f1=0.9490, auc=0.9878
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9526    0.9445    0.9485      2000
+        RIF+ETOH     0.9450    0.9530    0.9490      2000
+    
+        accuracy                         0.9487      4000
+       macro avg     0.9488    0.9487    0.9487      4000
+    weighted avg     0.9488    0.9487    0.9487      4000
+
+retrain: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/EfficientNetB0_WT_ETOH_RIF_ETOH_patientSplitOff_overlap_20260125-122317_pid12860/best_retrain_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.9577, f1=0.9567, auc=0.9938
+  val: n=4000, acc=0.9340, f1=0.9320, auc=0.9865
+  test: n=4000, acc=0.9495, f1=0.9494, auc=0.9884
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9473    0.9520    0.9496      2000
+        RIF+ETOH     0.9518    0.9470    0.9494      2000
+    
+        accuracy                         0.9495      4000
+       macro avg     0.9495    0.9495    0.9495      4000
+    weighted avg     0.9495    0.9495    0.9495      4000
+
+========================================================================================
+ANTIBIOTIC: RIF | split: patientSplitOn | conditions: ['WT+ETOH', 'RIF+ETOH']
+dataset_root: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/data/classifier_dataset_mg1655_WT_ETOH__CIP_ETOH__COAMOX_ETOH__GENT_ETOH__RIF_ETOH_t10_v20
+
+study: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/optuna_EfficientNetB0_WT_ETOH_RIF_ETOH_patientSplitOn_noOverlap_20260124-235957_pid7906/best_study_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.8768, f1=0.8793, auc=0.9479
+  val: n=4000, acc=0.8962, f1=0.8980, auc=0.9576
+  test: n=4000, acc=0.9103, f1=0.9120, auc=0.9681
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.9276    0.8900    0.9084      2000
+        RIF+ETOH     0.8943    0.9305    0.9120      2000
+    
+        accuracy                         0.9103      4000
+       macro avg     0.9109    0.9103    0.9102      4000
+    weighted avg     0.9109    0.9103    0.9102      4000
+
+retrain: /home/luciano/Akio_o_brabo/ICproj/Deep-Learning-and-Single-Cell-Phenotyping-for-Rapid-Antimicrobial-Susceptibility-Testing-main/models/classification/EfficientNetB0_WT_ETOH_RIF_ETOH_patientSplitOn_noOverlap_20260125-045754_pid7906/best_retrain_model.pth
+  inferred num_classes=2, head_dropout=yes
+  train: n=4000, acc=0.8598, f1=0.8463, auc=0.9554
+  val: n=4000, acc=0.8482, f1=0.8304, auc=0.9500
+  test: n=4000, acc=0.8658, f1=0.8544, auc=0.9512
+  hold-out test classification_report:
+                  precision    recall  f1-score   support
+    
+         WT+ETOH     0.8163    0.9440    0.8755      2000
+        RIF+ETOH     0.9336    0.7875    0.8544      2000
+    
+        accuracy                         0.8658      4000
+       macro avg     0.8749    0.8658    0.8649      4000
+    weighted avg     0.8749    0.8658    0.8649      4000
+
